@@ -1,7 +1,7 @@
 import { store } from '../store.js';
 import { PmpCalculators } from '../utils/pmpCalculators.js';
 import { t } from '../utils/i18n.js';
-import { cloudSync } from '../services/cloudSync.js';
+import { cloudSync } from '../services/cloudSync.js?v=20260731-1';
 
 export class ExportComponent {
   constructor(container) {
