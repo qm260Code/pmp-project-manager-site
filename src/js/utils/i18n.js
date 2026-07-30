@@ -1237,7 +1237,7 @@ function zhOnly(text) {
 export function t(key) {
   const lang = (window.pmpStore && window.pmpStore.state && window.pmpStore.state.language) || 'en';
   const value = repairText((translations[lang] && translations[lang][key]) || key);
-  return lang === 'zh' ? zhOnly(value) : value;
+  return lang === 'zh' && key !== 'footer_developed_by' ? zhOnly(value) : value;
 }
 
 export default t;

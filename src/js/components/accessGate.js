@@ -1,5 +1,5 @@
 import { store } from '../store.js';
-import { cloudSync } from '../services/cloudSync.js?v=20260731-2';
+import { cloudSync } from '../services/cloudSync.js?v=20260731-3';
 
 export class AccessGate {
   constructor() {
