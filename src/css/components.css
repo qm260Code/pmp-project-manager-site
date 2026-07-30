@@ -818,6 +818,72 @@ textarea.form-control {
 .cloud-sharing-panel p { margin: 0 0 14px; color: var(--text-secondary); font-size: 13px; }
 .cloud-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
 .cloud-actions .form-control { flex: 1 1 240px; min-width: 0; }
+.cloud-allowlist-box { margin-top: 16px; padding: 16px; border: 1px solid var(--border-color); background: var(--bg-secondary); }
+.cloud-allowlist-box h4 { margin: 0 0 8px; }
+.cloud-file-input { display: block; width: 100%; margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
+
+/* Authentication gate: project content is never displayed before Supabase authorizes the email. */
+.access-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+.access-gate-card {
+  position: relative;
+  width: min(460px, 100%);
+  padding: 32px;
+  border: 1px solid var(--border-color);
+  border-top: 6px solid var(--accent-primary);
+  background: var(--bg-surface-opaque);
+}
+.access-gate-language { position: absolute; top: 16px; right: 16px; }
+.access-gate-language select {
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-opaque);
+  color: var(--text-primary);
+}
+.access-gate-mark { color: var(--accent-primary); font-size: 13px; font-weight: 800; letter-spacing: .14em; }
+.access-gate-card h1 { margin: 20px 0 8px; font-size: 25px; }
+.access-gate-card > p { margin: 0 0 22px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+.access-gate-card form { display: grid; gap: 10px; }
+.access-gate-card label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.access-gate-card .btn { min-height: 42px; }
+.access-gate-status { min-height: 20px; margin-top: 14px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.access-gate-status.error { color: var(--status-danger); }
+.access-gate-status.success { color: var(--status-success); }
+.access-gate-signout { display: none; width: 100%; margin-top: 10px; }
+body.access-granted .access-gate { display: none; }
+body:not(.access-granted) .app-shell { visibility: hidden; }
+body.access-denied .access-gate-signout { display: block; }
+body.access-loading #access-send-link { pointer-events: none; opacity: .65; }
+
+/* Viewers can navigate, filter, export and print, but editing controls are removed. */
+body.role-viewer #btn-edit-project-info,
+body.role-viewer #btn-add-new-project,
+body.role-viewer #btn-delete-current-project,
+body.role-viewer #btn-quick-rollback,
+body.role-viewer #btn-quick-reset,
+body.role-viewer #btn-import-wrapper,
+body.role-viewer [id^="btn-add-"],
+body.role-viewer #btn-edit-raci-roles,
+body.role-viewer [data-action="edit"],
+body.role-viewer [data-action="delete"],
+body.role-viewer .btn-delete-raci,
+body.role-viewer #btn-submit-modal {
+  display: none !important;
+}
+body.role-viewer #project-selector { pointer-events: none; opacity: .75; }
+body.role-viewer .app-main input,
+body.role-viewer .app-main select,
+body.role-viewer .app-main textarea,
+body.role-viewer .gantt-row {
+  pointer-events: none;
+}
 
 .btn-compact { padding: 4px 8px; font-size: 12px; }
 .dashboard-risk-matrix .bosch-cell { cursor: default; }

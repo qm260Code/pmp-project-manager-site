@@ -15,6 +15,7 @@ import { ActionItemsComponent } from './components/actionItems.js';
 import { ChangeRequestsComponent } from './components/changeRequests.js';
 import { RequirementsComponent } from './components/requirements.js';
 import { ExportComponent } from './components/export.js';
+import { AccessGate } from './components/accessGate.js';
 
 // Import i18n helper
 import { t, translations, repairText } from './utils/i18n.js';
@@ -26,6 +27,7 @@ class PmpApp {
     this.currentView = 'dashboard';
     
     this.initElements();
+    this.accessGate = new AccessGate();
     this.initRouter();
     this.initGlobalActions();
     this.initStoreSubscriptions();

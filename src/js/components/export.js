@@ -30,12 +30,39 @@ export class ExportComponent {
     this.btnExportRisksCsv.addEventListener('click', () => this.exportRisksCsv());
     this.btnPrintReport.addEventListener('click', () => this.generatePrintReport());
     this.cloudPanel?.addEventListener('click', event => this.handleCloudAction(event));
+    this.cloudPanel?.addEventListener('change', event => {
+      if (event.target.id === 'cloud-allowlist-file') this.handleAllowlistFile(event);
+    });
   }
 
   // ─── JSON Backup ────────────────────────────────────────────────────────────
 
   isZh() {
     return (store.state.language || 'en') === 'zh';
+  }
+
+  escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[character]);
+  }
+
+  renderAllowlistManager(state, text) {
+    if (!state.canEdit) return '';
+    return `
+      <div class="cloud-allowlist-box">
+        <h4>${text('Stakeholder email allowlist', '干系人邮箱白名单')}</h4>
+        <p>${text(
+          'Upload an Excel or CSV file containing stakeholder email addresses. Uploading replaces the previous list. Stakeholders receive view-only access.',
+          '上传包含干系人邮箱的 Excel 或 CSV 文件。每次上传会替换旧名单，名单内干系人仅有查看权限。'
+        )}</p>
+        <p><strong>${text('Current stakeholder emails', '当前干系人邮箱数')}:</strong> ${state.stakeholderCount || 0}</p>
+        <input class="cloud-file-input" id="cloud-allowlist-file" type="file" accept=".xlsx,.xls,.xlsb,.csv">
+      </div>`;
   }
 
   renderCloud(state) {
@@ -47,18 +74,19 @@ export class ExportComponent {
       return;
     }
     if (!state.email) {
-      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Sign in with your project-manager email to publish or view a project.', '请使用项目经理邮箱登录，以发布或查看项目。') + '</p><div class="cloud-actions"><input class="form-control" id="cloud-email" type="email" placeholder="' + text('Email address', '邮箱地址') + '"><button class="btn btn-primary" data-cloud-action="sign-in">' + text('Send magic link', '发送登录链接') + '</button></div>';
+      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Sign in from the secure access screen to continue.', '请从安全访问页面登录后继续。') + '</p>';
       return;
     }
     if (!state.project) {
-      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Signed in as ', '当前登录：') + state.email + '</p><button class="btn btn-primary" data-cloud-action="publish">' + text('Publish current project', '发布当前项目') + '</button>';
+      const action = state.canEdit
+        ? '<button class="btn btn-primary" data-cloud-action="publish">' + text('Publish current project', '发布当前项目') + '</button>'
+        : '<p>' + text('No shared project has been published yet.', '管理员尚未发布共享项目。') + '</p>';
+      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Signed in as ', '当前登录：') + this.escapeHtml(state.email) + ' · ' + (state.canEdit ? text('Administrator', '管理员') : text('Viewer', '只读')) + '</p>' + action + this.renderAllowlistManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
       return;
     }
-    const mode = state.canEdit ? text('Editor', '可编辑') : text('Viewer', '只读');
-    const invite = state.canEdit
-      ? '<div class="cloud-actions"><input class="form-control" id="cloud-viewer-email" type="email" placeholder="' + text('Stakeholder email', '干系人邮箱') + '"><button class="btn btn-secondary" data-cloud-action="invite">' + text('Add viewer', '添加只读成员') + '</button></div>'
-      : '';
-    this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p><strong>' + state.project.name + '</strong> · ' + mode + ' · ' + state.email + '</p>' + invite + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sync">' + text('Sync now', '立即同步') + '</button><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
+    const mode = state.canEdit ? text('Administrator', '管理员') : text('Viewer · view only', '干系人 · 只读');
+    const syncLabel = state.canEdit ? text('Save to cloud', '保存到云端') : text('Refresh data', '刷新数据');
+    this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p><strong>' + this.escapeHtml(state.project.name) + '</strong> · ' + mode + ' · ' + this.escapeHtml(state.email) + '</p>' + this.renderAllowlistManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sync">' + syncLabel + '</button><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
   }
 
   async handleCloudAction(event) {
@@ -67,27 +95,71 @@ export class ExportComponent {
     const action = button.dataset.cloudAction;
     const text = (en, cn) => this.isZh() ? cn : en;
     try {
-      if (action === 'sign-in') {
-        const email = document.getElementById('cloud-email')?.value?.trim();
-        if (!email) throw new Error('email');
-        await cloudSync.sendMagicLink(email);
-        store.publish('notify', { type: 'success', message: text('Magic link sent. Check your email.', '登录链接已发送，请查收邮箱。') });
-      } else if (action === 'publish') {
+      if (action === 'publish') {
         await cloudSync.publishCurrentProject();
         store.publish('notify', { type: 'success', message: text('Project published to the shared workspace.', '项目已发布到共享空间。') });
-      } else if (action === 'invite') {
-        const email = document.getElementById('cloud-viewer-email')?.value?.trim();
-        if (!email) throw new Error('email');
-        await cloudSync.inviteViewer(email);
-        store.publish('notify', { type: 'success', message: text('Viewer access granted.', '已授予只读查看权限。') });
       } else if (action === 'sync') {
-        await cloudSync.saveNow();
+        if (this.cloudState?.canEdit) await cloudSync.saveNow();
+        else await cloudSync.refresh();
         store.publish('notify', { type: 'success', message: text('Cloud data is up to date.', '云端数据已同步。') });
       } else if (action === 'sign-out') {
         await cloudSync.signOut();
       }
     } catch (error) {
       store.publish('notify', { type: 'error', message: text('Unable to complete the cloud action. Check your setup and email address.', '云端操作未完成，请检查配置和邮箱地址。') });
+    }
+  }
+
+  async handleAllowlistFile(event) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    const text = (en, cn) => this.isZh() ? cn : en;
+
+    try {
+      if (!window.XLSX) throw new Error('Excel parser unavailable');
+      const workbook = window.XLSX.read(await file.arrayBuffer(), { raw: false });
+      const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+      const emails = new Set();
+
+      workbook.SheetNames.forEach(sheetName => {
+        const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+          header: 1,
+          defval: '',
+          raw: false
+        });
+        rows.forEach(row => row.forEach(cell => {
+          const matches = String(cell).match(emailPattern) || [];
+          matches.forEach(email => emails.add(email.trim().toLowerCase()));
+        }));
+      });
+
+      if (!emails.size) {
+        throw new Error('No email addresses found');
+      }
+      if (emails.size > 5000) {
+        throw new Error('Too many email addresses');
+      }
+
+      const count = await cloudSync.replaceStakeholderAllowlist([...emails]);
+      store.publish('notify', {
+        type: 'success',
+        message: text(
+          `Stakeholder allowlist updated: ${count} email address(es).`,
+          `干系人白名单已更新：共 ${count} 个邮箱。`
+        )
+      });
+    } catch (error) {
+      console.warn('[StakeholderAllowlist] Upload failed.', error);
+      store.publish('notify', {
+        type: 'error',
+        message: text(
+          'Unable to import the stakeholder list. Check that the file contains valid email addresses.',
+          '无法导入干系人名单，请确认文件中包含有效邮箱地址。'
+        )
+      });
+    } finally {
+      input.value = '';
     }
   }
   exportProjectJson() {

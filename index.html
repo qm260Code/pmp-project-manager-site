@@ -9,8 +9,30 @@
   <link rel="stylesheet" href="src/css/components.css">
   <!-- Vendored for reliable rendering on GitHub Pages and restricted networks. -->
   <script src="src/vendor/echarts.min.js"></script>
+  <script src="src/vendor/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="access-pending">
+
+  <section class="access-gate" id="access-gate" aria-live="polite">
+    <div class="access-gate-card">
+      <div class="access-gate-language">
+        <select id="access-language-selector" aria-label="Language">
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+        </select>
+      </div>
+      <div class="access-gate-mark">PMP</div>
+      <h1 id="access-gate-title">Project workspace sign in</h1>
+      <p id="access-gate-description">Enter an authorized stakeholder or administrator email. We will send a secure sign-in link.</p>
+      <form id="access-gate-form">
+        <label for="access-email" id="access-email-label">Email address</label>
+        <input class="form-control" id="access-email" type="email" autocomplete="email" required>
+        <button class="btn btn-primary" id="access-send-link" type="submit">Send sign-in link</button>
+      </form>
+      <div class="access-gate-status" id="access-gate-status"></div>
+      <button class="btn btn-secondary access-gate-signout" id="access-gate-signout" type="button">Sign out</button>
+    </div>
+  </section>
 
   <div class="app-shell">
     
@@ -41,8 +63,7 @@
       <ul class="sidebar-menu" id="sidebar-menu-list"></ul>
       
       <div class="sidebar-footer">
-        <p data-i18n="footer_developed_by">Developed by Mo Qiutong</p>
-        <p style="font-size: 10px; margin-top: 4px;" data-i18n="footer_design">Antigravity Design</p>
+        <p data-i18n="footer_developed_by">Developed By Tommo</p>
       </div>
     </aside>
 
