@@ -591,7 +591,7 @@ export const translations = {
     delete_project_title: "删除当前项目",
     rollback_title: "撤销上一次修改",
     reset_title: "重置为基线模板",
-    footer_developed_by: "Developed By Tommo",
+    footer_developed_by: "开发者：Tommo",
     placeholder_person_name: "例如：张三",
     placeholder_stakeholder_role: "例如：项目发起人、技术专家",
     placeholder_engagement_strategy: "例如：每周状态汇报及决策评审",
