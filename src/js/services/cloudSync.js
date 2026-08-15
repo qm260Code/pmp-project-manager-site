@@ -41,7 +41,7 @@ class CloudSync {
       stakeholderCount: this.stakeholderCount,
       personnelCount: this.personnelCount,
       passwordChangeRequired: this.passwordChangeRequired,
-      authorized: !this.passwordChangeRequired && (this.role === 'admin' || this.role === 'viewer'),
+      authorized: this.role === 'admin' || this.role === 'viewer',
       canEdit: this.role === 'admin',
       errorMessage: this.errorMessage,
       errorCode: this.errorCode
@@ -203,13 +203,6 @@ class CloudSync {
 
     const { data: profile, error: profileError } = await client.rpc('current_access_profile');
     if (profileError) throw profileError;
-    if (profile?.role === 'password_change_required') {
-      this.role = null;
-      this.passwordChangeRequired = true;
-      this.status = 'password-change-required';
-      this.emit();
-      return;
-    }
     if (!profile?.role) {
       this.project = null;
       this.role = null;
@@ -219,6 +212,7 @@ class CloudSync {
     }
 
     this.role = profile.role;
+    this.passwordChangeRequired = Boolean(profile.password_change_required);
     this.stakeholderCount = Number(profile.stakeholder_count || 0);
     this.personnelCount = Number(profile.personnel_count || 0);
 

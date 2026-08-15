@@ -1,5 +1,5 @@
 import { store } from '../store.js';
-import { cloudSync } from '../services/cloudSync.js?v=20260815-2';
+import { cloudSync } from '../services/cloudSync.js?v=20260815-3';
 
 export class AccessGate {
   constructor() {
@@ -11,23 +11,21 @@ export class AccessGate {
     this.passwordLabel = document.getElementById('access-password-label');
     this.sendButton = document.getElementById('access-send-link');
     this.methodButtons = [...document.querySelectorAll('[data-access-mode]')];
-    this.passwordChangeForm = document.getElementById('access-password-change-form');
-    this.passwordChangeHelp = document.getElementById('access-password-change-help');
-    this.newPasswordInput = document.getElementById('access-new-password');
-    this.confirmPasswordInput = document.getElementById('access-confirm-password');
-    this.newPasswordLabel = document.getElementById('access-new-password-label');
-    this.confirmPasswordLabel = document.getElementById('access-confirm-password-label');
-    this.changePasswordButton = document.getElementById('access-change-password');
     this.signOutButton = document.getElementById('access-gate-signout');
     this.languageSelector = document.getElementById('access-language-selector');
     this.status = document.getElementById('access-gate-status');
     this.title = document.getElementById('access-gate-title');
     this.description = document.getElementById('access-gate-description');
     this.emailLabel = document.getElementById('access-email-label');
-    this.mode = 'magic-link';
+    this.mode = 'password';
 
     this.form?.addEventListener('submit', event => this.handleSignIn(event));
-    this.passwordChangeForm?.addEventListener('submit', event => this.handlePasswordChange(event));
+    this.emailInput?.addEventListener('input', () => {
+      if (this.isAdminEmail(this.emailInput.value) && this.mode !== 'password') {
+        this.mode = 'password';
+        this.render();
+      }
+    });
     this.methodButtons.forEach(button => button.addEventListener('click', () => {
       this.mode = button.dataset.accessMode;
       this.render();
@@ -67,8 +65,8 @@ export class AccessGate {
     this.languageSelector.value = zh ? 'zh' : 'en';
     this.title.textContent = this.text('Project workspace sign in', '项目工作区登录');
     this.description.textContent = this.text(
-      'Use a secure email link, or sign in with an administrator-issued account.',
-      '使用安全邮件链接登录，或使用管理员创建的账号和密码登录。'
+      'Sign in with your email and password. Authorized stakeholders may also use a secure email link.',
+      '使用邮箱和密码登录。已授权的干系人也可以使用安全邮件链接登录。'
     );
     this.methodButtons[0].textContent = this.text('Email link', '邮件链接');
     this.methodButtons[1].textContent = this.text('Email + password', '邮箱 + 密码');
@@ -80,21 +78,12 @@ export class AccessGate {
     this.passwordField.hidden = this.mode !== 'password';
     this.passwordInput.required = this.mode === 'password';
     this.sendButton.disabled = state.status === 'loading';
-    this.changePasswordButton.disabled = state.status === 'loading';
     this.sendButton.textContent = this.mode === 'password'
       ? this.text('Sign in', '登录')
       : this.text('Send sign-in link', '发送登录链接');
-    this.passwordChangeHelp.textContent = this.text(
-      'For security, choose a new password before viewing project data.',
-      '为确保安全，请先设置新密码，然后再查看项目数据。'
-    );
-    this.newPasswordLabel.textContent = this.text('New password (at least 10 characters)', '新密码（至少 10 个字符）');
-    this.confirmPasswordLabel.textContent = this.text('Confirm new password', '确认新密码');
-    this.changePasswordButton.textContent = this.text('Set password and continue', '设置密码并继续');
     this.signOutButton.textContent = this.text('Sign out and use another email', '退出并使用其他邮箱');
-    this.form.hidden = Boolean(state.email) || state.passwordChangeRequired;
-    this.passwordChangeForm.hidden = !state.passwordChangeRequired;
-    document.querySelector('.access-method-tabs').hidden = Boolean(state.email) || state.passwordChangeRequired;
+    this.form.hidden = Boolean(state.email);
+    document.querySelector('.access-method-tabs').hidden = Boolean(state.email);
     this.signOutButton.hidden = !state.email;
     this.status.className = 'access-gate-status';
 
@@ -105,11 +94,6 @@ export class AccessGate {
       this.status.textContent = this.text(
         'Sign-in link sent. Open your email and use the link to continue.',
         '登录链接已发送，请打开邮箱并点击链接继续。'
-      );
-    } else if (state.status === 'password-change-required') {
-      this.status.textContent = this.text(
-        'Your temporary password was accepted. Set a private password to continue.',
-        '临时密码验证成功，请设置个人密码后继续。'
       );
     } else if (state.status === 'access-denied') {
       this.status.classList.add('error');
@@ -137,8 +121,8 @@ export class AccessGate {
     if (code === 'invalid_credentials' || message.includes('invalid login credentials')) {
       if (adminEmail) {
         return this.text(
-          'The administrator email or password is incorrect. You can use Email link to sign in; administrators are not required to set a new password.',
-          '管理员邮箱或密码不正确。你可以改用“邮件链接”登录；管理员不会被要求设置新密码。'
+          'The administrator email or password is incorrect.',
+          '管理员邮箱或密码不正确。'
         );
       }
       return this.text('The email or password is incorrect.', '邮箱或密码不正确。');
@@ -177,27 +161,6 @@ export class AccessGate {
         this.applyAccessState(this.state);
         this.render();
       }
-    }
-  }
-
-  async handlePasswordChange(event) {
-    event.preventDefault();
-    const password = this.newPasswordInput.value;
-    if (password.length < 10 || password !== this.confirmPasswordInput.value) {
-      this.status.className = 'access-gate-status error';
-      this.status.textContent = this.text(
-        'Passwords must match and contain at least 10 characters.',
-        '两次密码必须一致，且至少包含 10 个字符。'
-      );
-      return;
-    }
-    try {
-      await cloudSync.changePassword(password);
-      this.newPasswordInput.value = '';
-      this.confirmPasswordInput.value = '';
-    } catch (error) {
-      this.status.className = 'access-gate-status error';
-      this.status.textContent = error.message || this.text('Unable to change password.', '无法修改密码。');
     }
   }
 

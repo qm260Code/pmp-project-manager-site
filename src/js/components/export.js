@@ -1,7 +1,7 @@
 import { store } from '../store.js';
 import { PmpCalculators } from '../utils/pmpCalculators.js';
 import { t } from '../utils/i18n.js';
-import { cloudSync } from '../services/cloudSync.js?v=20260815-2';
+import { cloudSync } from '../services/cloudSync.js?v=20260815-3';
 
 export class ExportComponent {
   constructor(container) {
@@ -98,8 +98,8 @@ export class ExportComponent {
         <section class="cloud-admin-box">
           <h4>${text('Managed personnel accounts', '录入人员账号')}</h4>
           <p>${text(
-            'Only administrators can add or remove accounts. New accounts receive a temporary password and must change it before viewing data.',
-            '仅管理员可增删账号。新账号使用临时密码登录，首次登录必须修改密码后才能查看数据。'
+            'Only administrators can add or remove accounts. New accounts receive a temporary password and can replace it after signing in.',
+            '仅管理员可增删账号。新账号使用临时密码登录，成功登录后可在账户密码区域修改。'
           )}</p>
           <div class="cloud-inline-form">
             <input class="form-control" id="cloud-personnel-name" type="text" maxlength="120" placeholder="${text('Name (optional)', '姓名（可选）')}">
@@ -121,16 +121,31 @@ export class ExportComponent {
             <tbody>${auditRows}</tbody>
           </table>
         </section>
-        <section class="cloud-admin-box">
-          <h4>${text('Administrator password', '管理员密码')}</h4>
-          <p>${text('Set or replace your own password. The password is sent directly to Supabase Auth and is never saved in this website.', '设置或更换你自己的管理员密码。密码只发送给 Supabase Auth，不会保存在本网站中。')}</p>
-          <div class="cloud-inline-form">
-            <input class="form-control" id="cloud-admin-password" type="password" minlength="10" autocomplete="new-password" placeholder="${text('At least 10 characters', '至少 10 个字符')}">
-            <input class="form-control" id="cloud-admin-password-confirm" type="password" minlength="10" autocomplete="new-password" placeholder="${text('Confirm password', '确认密码')}">
-            <button class="btn btn-primary" type="button" data-cloud-action="change-admin-password">${text('Update password', '更新密码')}</button>
-          </div>
-        </section>
       </div>`;
+  }
+
+  renderAccountSecurity(state, text) {
+    if (!state.email) return '';
+    const temporaryNotice = state.passwordChangeRequired
+      ? `<p><strong>${text(
+          'You are signed in with a temporary password. Replace it with a private password here.',
+          '你已使用临时密码成功登录，请在此设置个人密码。'
+        )}</strong></p>`
+      : '';
+    return `
+      <section class="cloud-admin-box cloud-account-security">
+        <h4>${text('Account password', '账户密码')}</h4>
+        ${temporaryNotice}
+        <p>${text(
+          'Change your password after signing in. It is sent directly to Supabase Auth and is never saved by this website.',
+          '成功登录后可在此修改密码。密码只发送给 Supabase Auth，不会保存在本网站中。'
+        )}</p>
+        <div class="cloud-inline-form">
+          <input class="form-control" id="cloud-account-password" type="password" minlength="10" autocomplete="new-password" placeholder="${text('At least 10 characters', '至少 10 个字符')}">
+          <input class="form-control" id="cloud-account-password-confirm" type="password" minlength="10" autocomplete="new-password" placeholder="${text('Confirm password', '确认密码')}">
+          <button class="btn btn-primary" type="button" data-cloud-action="change-account-password">${text('Update password', '更新密码')}</button>
+        </div>
+      </section>`;
   }
 
   formatDateTime(value) {
@@ -181,12 +196,12 @@ export class ExportComponent {
       const action = state.canEdit
         ? '<button class="btn btn-primary" data-cloud-action="publish">' + text('Publish current project', '发布当前项目') + '</button>'
         : '<p>' + text('No shared project has been published yet.', '管理员尚未发布共享项目。') + '</p>';
-      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Signed in as ', '当前登录：') + this.escapeHtml(state.email) + ' · ' + (state.canEdit ? text('Administrator', '管理员') : text('Viewer', '只读')) + '</p>' + action + this.renderAllowlistManager(state, text) + this.renderAdminManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
+      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Signed in as ', '当前登录：') + this.escapeHtml(state.email) + ' · ' + (state.canEdit ? text('Administrator', '管理员') : text('Viewer', '只读')) + '</p>' + action + this.renderAllowlistManager(state, text) + this.renderAdminManager(state, text) + this.renderAccountSecurity(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
       return;
     }
     const mode = state.canEdit ? text('Administrator', '管理员') : text('Viewer · view only', '干系人 · 只读');
     const syncLabel = state.canEdit ? text('Save to cloud', '保存到云端') : text('Refresh data', '刷新数据');
-    this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p><strong>' + this.escapeHtml(state.project.name) + '</strong> · ' + mode + ' · ' + this.escapeHtml(state.email) + '</p>' + this.renderAllowlistManager(state, text) + this.renderAdminManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sync">' + syncLabel + '</button><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
+    this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p><strong>' + this.escapeHtml(state.project.name) + '</strong> · ' + mode + ' · ' + this.escapeHtml(state.email) + '</p>' + this.renderAllowlistManager(state, text) + this.renderAdminManager(state, text) + this.renderAccountSecurity(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sync">' + syncLabel + '</button><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
   }
 
   async handleCloudAction(event) {
@@ -227,9 +242,9 @@ export class ExportComponent {
         this.adminDataKey = null;
         await this.loadAdminData(true);
         store.publish('notify', { type: 'success', message: text('Login records refreshed.', '登录记录已刷新。') });
-      } else if (action === 'change-admin-password') {
-        const passwordInput = document.getElementById('cloud-admin-password');
-        const confirmInput = document.getElementById('cloud-admin-password-confirm');
+      } else if (action === 'change-account-password') {
+        const passwordInput = document.getElementById('cloud-account-password');
+        const confirmInput = document.getElementById('cloud-account-password-confirm');
         const password = passwordInput?.value || '';
         if (password.length < 10 || password !== confirmInput?.value) {
           throw new Error(text('Passwords must match and contain at least 10 characters.', '两次密码必须一致，且至少包含 10 个字符。'));
@@ -237,7 +252,7 @@ export class ExportComponent {
         await cloudSync.changePassword(password);
         passwordInput.value = '';
         confirmInput.value = '';
-        store.publish('notify', { type: 'success', message: text('Administrator password updated.', '管理员密码已更新。') });
+        store.publish('notify', { type: 'success', message: text('Account password updated.', '账户密码已更新。') });
       }
     } catch (error) {
       console.warn('[CloudAdmin] Action failed.', error);

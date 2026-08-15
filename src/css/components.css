@@ -824,6 +824,7 @@ textarea.form-control {
 .cloud-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
 .cloud-admin-box { padding: 16px; border: 1px solid var(--border-color); background: var(--bg-secondary); }
 .cloud-admin-box h4 { margin: 0 0 8px; }
+.cloud-account-security { margin-top: 16px; }
 .cloud-inline-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 .cloud-admin-table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 12px; }
 .cloud-admin-table th, .cloud-admin-table td { padding: 8px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; }
@@ -863,7 +864,6 @@ textarea.form-control {
 .access-method-tab { padding: 9px 12px; border: 0; background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; }
 .access-method-tab.active { background: var(--accent-primary); color: #fff; font-weight: 700; }
 .access-password-field { display: grid; gap: 10px; }
-#access-password-change-form > p { margin: 0 0 4px; color: var(--text-secondary); font-size: 13px; }
 .access-gate-card label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
 .access-gate-card .btn { min-height: 42px; }
 .access-gate-status { min-height: 20px; margin-top: 14px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
