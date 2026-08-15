@@ -821,6 +821,14 @@ textarea.form-control {
 .cloud-allowlist-box { margin-top: 16px; padding: 16px; border: 1px solid var(--border-color); background: var(--bg-secondary); }
 .cloud-allowlist-box h4 { margin: 0 0 8px; }
 .cloud-file-input { display: block; width: 100%; margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
+.cloud-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+.cloud-admin-box { padding: 16px; border: 1px solid var(--border-color); background: var(--bg-secondary); }
+.cloud-admin-box h4 { margin: 0 0 8px; }
+.cloud-inline-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.cloud-admin-table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 12px; }
+.cloud-admin-table th, .cloud-admin-table td { padding: 8px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; }
+.cloud-admin-table th { color: var(--text-secondary); font-weight: 700; }
+.cloud-admin-table .btn { min-height: 30px; padding: 4px 8px; }
 
 /* Authentication gate: project content is never displayed before Supabase authorizes the email. */
 .access-gate {
@@ -851,6 +859,11 @@ textarea.form-control {
 .access-gate-card h1 { margin: 20px 0 8px; font-size: 25px; }
 .access-gate-card > p { margin: 0 0 22px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
 .access-gate-card form { display: grid; gap: 10px; }
+.access-method-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 0 0 16px; border: 1px solid var(--border-color); }
+.access-method-tab { padding: 9px 12px; border: 0; background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; }
+.access-method-tab.active { background: var(--accent-primary); color: #fff; font-weight: 700; }
+.access-password-field { display: grid; gap: 10px; }
+#access-password-change-form > p { margin: 0 0 4px; color: var(--text-secondary); font-size: 13px; }
 .access-gate-card label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
 .access-gate-card .btn { min-height: 42px; }
 .access-gate-status { min-height: 20px; margin-top: 14px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
@@ -860,7 +873,13 @@ textarea.form-control {
 body.access-granted .access-gate { display: none; }
 body:not(.access-granted) .app-shell { visibility: hidden; }
 body.access-denied .access-gate-signout { display: block; }
-body.access-loading #access-send-link { pointer-events: none; opacity: .65; }
+body.access-loading #access-send-link,
+body.access-loading #access-change-password { pointer-events: none; opacity: .65; }
+
+@media (max-width: 680px) {
+  .cloud-inline-form { grid-template-columns: 1fr; }
+  .cloud-admin-table { display: block; overflow-x: auto; }
+}
 
 /* Viewers can navigate, filter, export and print, but editing controls are removed. */
 body.role-viewer #btn-edit-project-info,

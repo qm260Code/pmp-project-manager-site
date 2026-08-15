@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="app_title">PMP Project Management & Process Control Center</title>
-  <link rel="stylesheet" href="src/css/theme.css?v=20260731-3">
-  <link rel="stylesheet" href="src/css/layout.css?v=20260731-3">
-  <link rel="stylesheet" href="src/css/components.css?v=20260731-3">
+  <link rel="stylesheet" href="src/css/theme.css?v=20260815-2">
+  <link rel="stylesheet" href="src/css/layout.css?v=20260815-2">
+  <link rel="stylesheet" href="src/css/components.css?v=20260815-2">
   <!-- Vendored for reliable rendering on GitHub Pages and restricted networks. -->
-  <script src="src/vendor/echarts.min.js?v=20260731-3"></script>
-  <script src="src/vendor/xlsx.full.min.js?v=20260731-3"></script>
+  <script src="src/vendor/echarts.min.js?v=20260815-2"></script>
+  <script src="src/vendor/xlsx.full.min.js?v=20260815-2"></script>
 </head>
 <body class="access-pending">
 
@@ -23,11 +23,27 @@
       </div>
       <div class="access-gate-mark">PMP</div>
       <h1 id="access-gate-title">Project workspace sign in</h1>
-      <p id="access-gate-description">Enter an authorized stakeholder or administrator email. We will send a secure sign-in link.</p>
+      <p id="access-gate-description">Use a secure email link, or sign in with an administrator-issued account.</p>
+      <div class="access-method-tabs" role="tablist" aria-label="Sign-in method">
+        <button class="access-method-tab active" id="access-method-link" type="button" data-access-mode="magic-link">Email link</button>
+        <button class="access-method-tab" id="access-method-password" type="button" data-access-mode="password">Email + password</button>
+      </div>
       <form id="access-gate-form">
         <label for="access-email" id="access-email-label">Email address</label>
         <input class="form-control" id="access-email" type="email" autocomplete="email" required>
+        <div class="access-password-field" id="access-password-field" hidden>
+          <label for="access-password" id="access-password-label">Password</label>
+          <input class="form-control" id="access-password" type="password" autocomplete="current-password">
+        </div>
         <button class="btn btn-primary" id="access-send-link" type="submit">Send sign-in link</button>
+      </form>
+      <form id="access-password-change-form" hidden>
+        <p id="access-password-change-help">You must choose a new password before viewing project data.</p>
+        <label for="access-new-password" id="access-new-password-label">New password</label>
+        <input class="form-control" id="access-new-password" type="password" autocomplete="new-password" minlength="10" required>
+        <label for="access-confirm-password" id="access-confirm-password-label">Confirm new password</label>
+        <input class="form-control" id="access-confirm-password" type="password" autocomplete="new-password" minlength="10" required>
+        <button class="btn btn-primary" id="access-change-password" type="submit">Set password and continue</button>
       </form>
       <div class="access-gate-status" id="access-gate-status"></div>
       <button class="btn btn-secondary access-gate-signout" id="access-gate-signout" type="button">Sign out</button>
@@ -632,6 +648,6 @@
   </div>
 
   <!-- Boot module script -->
-  <script type="module" src="src/js/app.js?v=20260731-3"></script>
+  <script type="module" src="src/js/app.js?v=20260815-2"></script>
 </body>
 </html>

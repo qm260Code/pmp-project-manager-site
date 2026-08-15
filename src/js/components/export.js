@@ -1,7 +1,7 @@
 import { store } from '../store.js';
 import { PmpCalculators } from '../utils/pmpCalculators.js';
 import { t } from '../utils/i18n.js';
-import { cloudSync } from '../services/cloudSync.js?v=20260731-3';
+import { cloudSync } from '../services/cloudSync.js?v=20260815-2';
 
 export class ExportComponent {
   constructor(container) {
@@ -12,9 +12,16 @@ export class ExportComponent {
     this.btnExportRisksCsv = document.getElementById('btn-export-risks-csv');
     this.btnPrintReport = document.getElementById('btn-generate-print-report');
     this.cloudPanel = document.getElementById('cloud-sharing-panel');
+    this.managedPersonnel = [];
+    this.loginAudit = [];
+    this.adminDataKey = null;
+    this.adminDataLoading = false;
     this._unsubscribeCloud = cloudSync.subscribe(state => {
       this.cloudState = state;
       this.renderCloud(state);
+      if (state.canEdit && state.email && this.adminDataKey !== state.email) {
+        this.loadAdminData().catch(error => console.warn('[CloudAdmin] Unable to load administrator data.', error));
+      }
     });
     this._unsubscribeStore = store.subscribe('state-updated', () => {
       if (this.cloudState) this.renderCloud(this.cloudState);
@@ -65,6 +72,99 @@ export class ExportComponent {
       </div>`;
   }
 
+  renderAdminManager(state, text) {
+    if (!state.canEdit) return '';
+    const personnelRows = this.managedPersonnel.length
+      ? this.managedPersonnel.map(person => `
+          <tr>
+            <td>${this.escapeHtml(person.display_name || '—')}</td>
+            <td>${this.escapeHtml(person.email)}</td>
+            <td>${person.last_sign_in_at ? this.escapeHtml(this.formatDateTime(person.last_sign_in_at)) : '—'}</td>
+            <td><button class="btn btn-secondary" type="button" data-cloud-action="delete-personnel" data-user-id="${this.escapeHtml(person.user_id || '')}">${text('Delete', '删除')}</button></td>
+          </tr>`).join('')
+      : `<tr><td colspan="4">${text('No password accounts have been added.', '尚未录入密码登录人员。')}</td></tr>`;
+    const auditRows = this.loginAudit.length
+      ? this.loginAudit.map(item => `
+          <tr>
+            <td>${this.escapeHtml(item.email)}</td>
+            <td>${this.escapeHtml(this.formatDateTime(item.logged_in_at))}</td>
+            <td>${this.escapeHtml(item.ip_address || '—')}</td>
+            <td>${this.escapeHtml(this.formatLoginMethod(item.login_method))}</td>
+          </tr>`).join('')
+      : `<tr><td colspan="4">${text('No visitor login records yet.', '暂无访客登录记录。')}</td></tr>`;
+
+    return `
+      <div class="cloud-admin-grid">
+        <section class="cloud-admin-box">
+          <h4>${text('Managed personnel accounts', '录入人员账号')}</h4>
+          <p>${text(
+            'Only administrators can add or remove accounts. New accounts receive a temporary password and must change it before viewing data.',
+            '仅管理员可增删账号。新账号使用临时密码登录，首次登录必须修改密码后才能查看数据。'
+          )}</p>
+          <div class="cloud-inline-form">
+            <input class="form-control" id="cloud-personnel-name" type="text" maxlength="120" placeholder="${text('Name (optional)', '姓名（可选）')}">
+            <input class="form-control" id="cloud-personnel-email" type="email" placeholder="${text('Email address', '邮箱地址')}">
+            <button class="btn btn-primary" type="button" data-cloud-action="create-personnel">${text('Add account', '添加账号')}</button>
+          </div>
+          <p><strong>${text('Managed accounts', '已录入账号')}:</strong> ${state.personnelCount || 0}</p>
+          <table class="cloud-admin-table">
+            <thead><tr><th>${text('Name', '姓名')}</th><th>${text('Email', '邮箱')}</th><th>${text('Last sign-in', '最近登录')}</th><th>${text('Action', '操作')}</th></tr></thead>
+            <tbody>${personnelRows}</tbody>
+          </table>
+        </section>
+        <section class="cloud-admin-box">
+          <h4>${text('Visitor login records', '访客登录记录')}</h4>
+          <p>${text('Records are captured by the server and include email, time, IP address, and login method.', '记录由服务端采集，包含邮箱、时间、IP 地址和登录方式。')}</p>
+          <button class="btn btn-secondary" type="button" data-cloud-action="refresh-audit">${text('Refresh records', '刷新记录')}</button>
+          <table class="cloud-admin-table">
+            <thead><tr><th>${text('Email', '邮箱')}</th><th>${text('Time', '时间')}</th><th>${text('IP address', 'IP 地址')}</th><th>${text('Method', '方式')}</th></tr></thead>
+            <tbody>${auditRows}</tbody>
+          </table>
+        </section>
+        <section class="cloud-admin-box">
+          <h4>${text('Administrator password', '管理员密码')}</h4>
+          <p>${text('Set or replace your own password. The password is sent directly to Supabase Auth and is never saved in this website.', '设置或更换你自己的管理员密码。密码只发送给 Supabase Auth，不会保存在本网站中。')}</p>
+          <div class="cloud-inline-form">
+            <input class="form-control" id="cloud-admin-password" type="password" minlength="10" autocomplete="new-password" placeholder="${text('At least 10 characters', '至少 10 个字符')}">
+            <input class="form-control" id="cloud-admin-password-confirm" type="password" minlength="10" autocomplete="new-password" placeholder="${text('Confirm password', '确认密码')}">
+            <button class="btn btn-primary" type="button" data-cloud-action="change-admin-password">${text('Update password', '更新密码')}</button>
+          </div>
+        </section>
+      </div>`;
+  }
+
+  formatDateTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value || '');
+    return new Intl.DateTimeFormat(this.isZh() ? 'zh-CN' : 'en-GB', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).format(date);
+  }
+
+  formatLoginMethod(value) {
+    const method = String(value || '').toLowerCase();
+    if (method === 'password') return this.isZh() ? '密码' : 'Password';
+    if (method === 'otp' || method === 'magiclink' || method === 'email') return this.isZh() ? '邮件链接' : 'Email link';
+    return method || '—';
+  }
+
+  async loadAdminData(force = false) {
+    if (!this.cloudState?.canEdit || this.adminDataLoading) return;
+    if (!force && this.adminDataKey === this.cloudState.email) return;
+    this.adminDataLoading = true;
+    try {
+      [this.managedPersonnel, this.loginAudit] = await Promise.all([
+        cloudSync.listManagedPersonnel(),
+        cloudSync.listVisitorLoginAudit(100)
+      ]);
+      this.adminDataKey = this.cloudState.email;
+      this.renderCloud(this.cloudState);
+    } finally {
+      this.adminDataLoading = false;
+    }
+  }
+
   renderCloud(state) {
     if (!this.cloudPanel) return;
     const zh = this.isZh();
@@ -81,12 +181,12 @@ export class ExportComponent {
       const action = state.canEdit
         ? '<button class="btn btn-primary" data-cloud-action="publish">' + text('Publish current project', '发布当前项目') + '</button>'
         : '<p>' + text('No shared project has been published yet.', '管理员尚未发布共享项目。') + '</p>';
-      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Signed in as ', '当前登录：') + this.escapeHtml(state.email) + ' · ' + (state.canEdit ? text('Administrator', '管理员') : text('Viewer', '只读')) + '</p>' + action + this.renderAllowlistManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
+      this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p>' + text('Signed in as ', '当前登录：') + this.escapeHtml(state.email) + ' · ' + (state.canEdit ? text('Administrator', '管理员') : text('Viewer', '只读')) + '</p>' + action + this.renderAllowlistManager(state, text) + this.renderAdminManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
       return;
     }
     const mode = state.canEdit ? text('Administrator', '管理员') : text('Viewer · view only', '干系人 · 只读');
     const syncLabel = state.canEdit ? text('Save to cloud', '保存到云端') : text('Refresh data', '刷新数据');
-    this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p><strong>' + this.escapeHtml(state.project.name) + '</strong> · ' + mode + ' · ' + this.escapeHtml(state.email) + '</p>' + this.renderAllowlistManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sync">' + syncLabel + '</button><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
+    this.cloudPanel.innerHTML = '<h3>' + text('Stakeholder sharing', '干系人共享') + '</h3><p><strong>' + this.escapeHtml(state.project.name) + '</strong> · ' + mode + ' · ' + this.escapeHtml(state.email) + '</p>' + this.renderAllowlistManager(state, text) + this.renderAdminManager(state, text) + '<div class="cloud-actions"><button class="btn btn-secondary" data-cloud-action="sync">' + syncLabel + '</button><button class="btn btn-secondary" data-cloud-action="sign-out">' + text('Sign out', '退出登录') + '</button></div>';
   }
 
   async handleCloudAction(event) {
@@ -104,9 +204,44 @@ export class ExportComponent {
         store.publish('notify', { type: 'success', message: text('Cloud data is up to date.', '云端数据已同步。') });
       } else if (action === 'sign-out') {
         await cloudSync.signOut();
+      } else if (action === 'create-personnel') {
+        const email = document.getElementById('cloud-personnel-email')?.value.trim();
+        const displayName = document.getElementById('cloud-personnel-name')?.value.trim();
+        if (!email) throw new Error('Email required');
+        await cloudSync.createManagedPersonnel(email, displayName);
+        this.adminDataKey = null;
+        await this.loadAdminData(true);
+        store.publish('notify', { type: 'success', message: text('Personnel account created.', '人员账号已创建。') });
+      } else if (action === 'delete-personnel') {
+        const userId = button.dataset.userId;
+        const confirmed = window.confirm(text(
+          'Delete this personnel account and revoke its access?',
+          '确认删除该人员账号并撤销其访问权限吗？'
+        ));
+        if (!confirmed) return;
+        await cloudSync.deleteManagedPersonnel(userId);
+        this.adminDataKey = null;
+        await this.loadAdminData(true);
+        store.publish('notify', { type: 'success', message: text('Personnel account deleted.', '人员账号已删除。') });
+      } else if (action === 'refresh-audit') {
+        this.adminDataKey = null;
+        await this.loadAdminData(true);
+        store.publish('notify', { type: 'success', message: text('Login records refreshed.', '登录记录已刷新。') });
+      } else if (action === 'change-admin-password') {
+        const passwordInput = document.getElementById('cloud-admin-password');
+        const confirmInput = document.getElementById('cloud-admin-password-confirm');
+        const password = passwordInput?.value || '';
+        if (password.length < 10 || password !== confirmInput?.value) {
+          throw new Error(text('Passwords must match and contain at least 10 characters.', '两次密码必须一致，且至少包含 10 个字符。'));
+        }
+        await cloudSync.changePassword(password);
+        passwordInput.value = '';
+        confirmInput.value = '';
+        store.publish('notify', { type: 'success', message: text('Administrator password updated.', '管理员密码已更新。') });
       }
     } catch (error) {
-      store.publish('notify', { type: 'error', message: text('Unable to complete the cloud action. Check your setup and email address.', '云端操作未完成，请检查配置和邮箱地址。') });
+      console.warn('[CloudAdmin] Action failed.', error);
+      store.publish('notify', { type: 'error', message: error.message || text('Unable to complete the cloud action.', '云端操作未完成。') });
     }
   }
 

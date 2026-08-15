@@ -13,6 +13,11 @@ class CloudSync {
     this.project = null;
     this.role = null;
     this.stakeholderCount = 0;
+    this.personnelCount = 0;
+    this.passwordChangeRequired = false;
+    this.recordedSessionId = null;
+    this.errorMessage = null;
+    this.errorCode = null;
     this.status = 'not-configured';
     this.listeners = new Set();
     this.saveTimer = null;
@@ -34,8 +39,12 @@ class CloudSync {
       project: this.project,
       role: this.role,
       stakeholderCount: this.stakeholderCount,
-      authorized: this.role === 'admin' || this.role === 'viewer',
-      canEdit: this.role === 'admin'
+      personnelCount: this.personnelCount,
+      passwordChangeRequired: this.passwordChangeRequired,
+      authorized: !this.passwordChangeRequired && (this.role === 'admin' || this.role === 'viewer'),
+      canEdit: this.role === 'admin',
+      errorMessage: this.errorMessage,
+      errorCode: this.errorCode
     };
   }
 
@@ -63,6 +72,8 @@ class CloudSync {
 
     const client = await this.getClient();
     this.status = 'loading';
+    this.errorMessage = null;
+    this.errorCode = null;
     this.emit();
 
     const { data, error } = await client.auth.getSession();
@@ -72,9 +83,11 @@ class CloudSync {
 
     client.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION') return;
-      window.setTimeout(() => this.handleSession(session).catch(error => {
+      const isUpdate = event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED';
+      window.setTimeout(() => this.handleSession(session, isUpdate).catch(error => {
         console.warn('[CloudSync] Unable to apply authentication state.', error);
         this.status = 'error';
+        this.errorMessage = error.message;
         this.emit();
       }), 0);
     });
@@ -82,16 +95,37 @@ class CloudSync {
     store.subscribe('state-updated', () => this.queueSave());
   }
 
-  async handleSession(session) {
+  async handleSession(session, isUpdate = false) {
+    const previousUserId = this.session?.user?.id;
+    const newUserId = session?.user?.id;
+
     this.session = session;
-    this.project = null;
-    this.role = null;
-    this.stakeholderCount = 0;
+    this.errorMessage = null;
+    this.errorCode = null;
+
     if (!session) {
+      this.project = null;
+      this.role = null;
+      this.stakeholderCount = 0;
+      this.personnelCount = 0;
+      this.passwordChangeRequired = false;
+      this.recordedSessionId = null;
       this.status = 'signed-out';
       this.emit();
       return;
     }
+
+    // Prevent clearing state and UI flicker if this is just a token refresh for the same user
+    if (isUpdate && previousUserId === newUserId && this.role) {
+      this.emit();
+      return;
+    }
+
+    this.project = null;
+    this.role = null;
+    this.stakeholderCount = 0;
+    this.personnelCount = 0;
+    this.passwordChangeRequired = false;
     await this.loadAvailableProject();
   }
 
@@ -101,6 +135,8 @@ class CloudSync {
     if (!client) throw new Error('Supabase is not configured.');
 
     this.status = 'loading';
+    this.errorMessage = null;
+    this.errorCode = null;
     this.emit();
     const { data: allowed, error: accessError } = await client.rpc('can_request_magic_link', {
       candidate_email: normalizedEmail
@@ -121,9 +157,37 @@ class CloudSync {
         shouldCreateUser: true
       }
     });
-    if (error) throw error;
+    if (error) {
+      this.status = 'error';
+      this.errorMessage = error.message;
+      this.errorCode = error.code || null;
+      this.emit();
+      throw error;
+    }
     this.status = 'magic-link-sent';
     this.emit();
+  }
+
+  async signInWithPassword(email, password) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const client = await this.getClient();
+    if (!client) throw new Error('Supabase is not configured.');
+
+    this.status = 'loading';
+    this.errorMessage = null;
+    this.errorCode = null;
+    this.emit();
+    const { error } = await client.auth.signInWithPassword({
+      email: normalizedEmail,
+      password: String(password || '')
+    });
+    if (error) {
+      this.status = 'error';
+      this.errorMessage = error.message;
+      this.errorCode = error.code || null;
+      this.emit();
+      throw error;
+    }
   }
 
   async signOut() {
@@ -139,6 +203,13 @@ class CloudSync {
 
     const { data: profile, error: profileError } = await client.rpc('current_access_profile');
     if (profileError) throw profileError;
+    if (profile?.role === 'password_change_required') {
+      this.role = null;
+      this.passwordChangeRequired = true;
+      this.status = 'password-change-required';
+      this.emit();
+      return;
+    }
     if (!profile?.role) {
       this.project = null;
       this.role = null;
@@ -149,6 +220,7 @@ class CloudSync {
 
     this.role = profile.role;
     this.stakeholderCount = Number(profile.stakeholder_count || 0);
+    this.personnelCount = Number(profile.personnel_count || 0);
 
     const { data: projects, error } = await client
       .from('projects')
@@ -161,6 +233,7 @@ class CloudSync {
       this.status = 'ready';
       store.state.cloud = { projectId: null, role: this.role };
       this.emit();
+      this.recordVisitorLogin().catch(error => console.warn('[CloudSync] Login audit failed.', error));
       return;
     }
 
@@ -169,6 +242,7 @@ class CloudSync {
     await this.loadProjectSnapshot(this.project.id);
     this.status = 'ready';
     this.emit();
+    this.recordVisitorLogin().catch(error => console.warn('[CloudSync] Login audit failed.', error));
   }
 
   async loadProjectSnapshot(projectId) {
@@ -257,6 +331,68 @@ class CloudSync {
     this.stakeholderCount = Number(data || 0);
     this.emit();
     return this.stakeholderCount;
+  }
+
+  async invokeAccessAdmin(body) {
+    const client = await this.getClient();
+    if (!client || !this.session) throw new Error('Authentication required.');
+    const { data, error } = await client.functions.invoke('access-admin', { body });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  async recordVisitorLogin() {
+    const sessionId = this.session?.access_token?.split('.')?.[1];
+    if (!this.session || this.role !== 'viewer' || this.recordedSessionId === sessionId) return;
+    await this.invokeAccessAdmin({ action: 'record_login' });
+    this.recordedSessionId = sessionId;
+  }
+
+  async changePassword(password) {
+    const client = await this.getClient();
+    if (!client || !this.session) throw new Error('Authentication required.');
+    if (this.passwordChangeRequired) {
+      await this.invokeAccessAdmin({ action: 'complete_password_change', password });
+      const { data, error: refreshError } = await client.auth.refreshSession();
+      if (refreshError) throw refreshError;
+      await this.handleSession(data.session);
+      return;
+    }
+    const { error } = await client.auth.updateUser({ password });
+    if (error) throw error;
+  }
+
+  async listManagedPersonnel() {
+    const client = await this.getClient();
+    if (!client || this.role !== 'admin') throw new Error('Administrator access required.');
+    const { data, error } = await client.rpc('list_managed_personnel');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createManagedPersonnel(email, displayName) {
+    if (this.role !== 'admin') throw new Error('Administrator access required.');
+    const data = await this.invokeAccessAdmin({ action: 'create_personnel', email, displayName });
+    this.personnelCount += 1;
+    this.emit();
+    return data;
+  }
+
+  async deleteManagedPersonnel(userId) {
+    if (this.role !== 'admin') throw new Error('Administrator access required.');
+    const data = await this.invokeAccessAdmin({ action: 'delete_personnel', userId });
+    this.personnelCount = Math.max(0, this.personnelCount - 1);
+    this.emit();
+    return data;
+  }
+
+  async listVisitorLoginAudit(limit = 100) {
+    const client = await this.getClient();
+    if (!client || this.role !== 'admin') throw new Error('Administrator access required.');
+    const { data, error } = await client.rpc('list_visitor_login_audit', { max_rows: limit });
+    if (error) throw error;
+    return data || [];
   }
 }
 

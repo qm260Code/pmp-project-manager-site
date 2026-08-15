@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { cloudSync } from './services/cloudSync.js?v=20260731-3';
+import { cloudSync } from './services/cloudSync.js?v=20260815-2';
 import { PmpCalculators } from './utils/pmpCalculators.js';
 
 // Import UI Views Components
@@ -14,11 +14,11 @@ import { TeamComponent } from './components/team.js';
 import { ActionItemsComponent } from './components/actionItems.js';
 import { ChangeRequestsComponent } from './components/changeRequests.js';
 import { RequirementsComponent } from './components/requirements.js';
-import { ExportComponent } from './components/export.js?v=20260731-3';
-import { AccessGate } from './components/accessGate.js?v=20260731-3';
+import { ExportComponent } from './components/export.js?v=20260815-2';
+import { AccessGate } from './components/accessGate.js?v=20260815-2';
 
 // Import i18n helper
-import { t, translations, repairText } from './utils/i18n.js?v=20260731-3';
+import { t, translations, repairText } from './utils/i18n.js?v=20260815-2';
 
 class PmpApp {
   constructor() {
